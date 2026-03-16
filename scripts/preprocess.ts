@@ -201,6 +201,24 @@ async function blockquoteToMarkdown(
 }
 
 /**
+ * Apply readings dictionary: replace matched words with <ruby> tags so that
+ * processRubyTags will produce the correct display text and speech text.
+ * e.g. "npm" → "<ruby>npm<rt>エヌピーエム</rt></ruby>"
+ */
+function applyReadingsDictionary(text: string, dict?: Record<string, string>): string {
+  if (!dict) return text;
+  let result = text;
+  for (const [word, reading] of Object.entries(dict)) {
+    const escaped = word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    result = result.replace(
+      new RegExp(escaped, "g"),
+      `<ruby>${word}<rt>${reading}</rt></ruby>`
+    );
+  }
+  return result;
+}
+
+/**
  * Process <ruby> tags to separate display text and speech text (reading).
  * <ruby>表示<rt>よみ</rt></ruby> → displayText: "表示", speechText: "よみ"
  * Also handles optional <rp> tags.
@@ -453,8 +471,9 @@ async function main() {
           // Skip lines with no speech text (speaker tag only)
           if (!speechText.trim()) continue;
 
-          // Process <ruby> tags: display text for subtitles, speech text for VOICEVOX
-          const { displayText, speechText: voicevoxText } = processRubyTags(speechText);
+          // Apply readings dictionary, then process <ruby> tags
+          const textWithReadings = applyReadingsDictionary(speechText, config.readingsDictionary as Record<string, string> | undefined);
+          const { displayText, speechText: voicevoxText } = processRubyTags(textWithReadings);
 
           // Insert gap between consecutive speech lines
           if (speechCount > 0 && speechGapFrames > 0) {

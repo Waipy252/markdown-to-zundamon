@@ -38,6 +38,7 @@ export const ManifestConfigSchema = z.object({
   chapterTitlePosition: z
     .enum(["top-right", "top-left"])
     .default("top-right"),
+  readingsDictionary: z.record(z.string(), z.string()).optional(),
 });
 
 export const SegmentSchema = z.object({

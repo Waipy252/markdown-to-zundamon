@@ -21,6 +21,11 @@ characters:
     overflowY: 0.6
     overflowX: 0.1
     height: 800
+readingsDictionary:
+    npm: エヌピーエム                                                                
+    MP4: エムピーフォー
+    Node.js: ノードジェーエス
+    Markdown: マークダウン
 ---
 
 # イントロ

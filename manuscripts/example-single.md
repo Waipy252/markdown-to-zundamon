@@ -1,7 +1,12 @@
 ---
 characters:
   - name: ずんだもん
-    speakerId: 3
+    speakerId: 3                   
+readingsDictionary:
+    npm: エヌピーエム
+    MP4: エムピーフォー
+    Node.js: ノードジェーエス
+    Markdown: マークダウン
 ---
 
 > # markdown-to-zundamon
@@ -40,3 +45,4 @@ characters:
 > ![](https://upload.wikimedia.org/wikipedia/commons/9/9c/Aldrin_Apollo_11.jpg)
 
 画像も表示できるよ！
+

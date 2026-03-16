@@ -4,30 +4,28 @@ Markdownからずんだもん解説動画を生成するプロジェクト。Rem
 
 ## 前提条件
 
-- Node.js
-- VOICEVOX が `localhost:50021` で起動していること（前処理時）
+- [mise](https://mise.jdx.dev/)（Node.js・pnpm の管理）
+- Docker（VOICEVOX 起動用）
+
+## セットアップ
+
+```bash
+mise install
+pnpm install
+docker compose up -d   # VOICEVOX を localhost:50021 で起動
+```
 
 ## ビルド・実行手順
 
 ```bash
-# 1. 前処理: Markdown解析 + VOICEVOX音声生成 → public/<project>/manifest.json
-npm run preprocess -- example/my-video.md
+# 1. 前処理: Markdown解析 + VOICEVOX音声生成 → public/projects/<project>/manifest.json
+pnpm exec ts-node scripts/preprocess.ts manuscripts/my-video.md
 
 # 2. プレビュー
-npm run studio -- my-video
+pnpm exec ts-node scripts/studio.ts my-video
 
 # 3. レンダリング → out/<project>.mp4
-npm run render -- my-video
-```
-
-複数の動画を扱う場合はそれぞれ前処理→レンダリングを実行:
-
-```bash
-npm run preprocess -- projects/intro.md
-npm run render -- intro
-
-npm run preprocess -- projects/chapter1.md
-npm run render -- chapter1
+pnpm exec ts-node scripts/render.ts my-video
 ```
 
 ## アーキテクチャ
@@ -38,6 +36,10 @@ npm run render -- chapter1
 
 - blockquote → スライド表示
 - それ以外のテキスト → ずんだもんが喋る（VOICEVOX）
+- `[pause: 500ms]` → ポーズ
+- `[キャラ名]` タグ → 話者切り替え
+- `<ruby>word<rt>よみ</rt></ruby>` → 字幕と読みを分離
+- frontmatter `readingsDictionary` → アルファベット単語の読み一括指定
 
 ## ファイル構成
 
@@ -48,15 +50,17 @@ npm run render -- chapter1
 - `src/Root.tsx` - Composition登録（calculateMetadata で動的マニフェスト読み込み）
 - `src/Composition.tsx` - メイン合成コンポーネント
 - `src/components/` - UI コンポーネント群
-- `src/types.ts` - 型定義
-- `public/<project>/manifest.json` - 前処理出力（生成物）
-- `public/<project>/audio/` - 生成された音声ファイル（生成物）
-- `public/<project>/images/` - スライド用画像（生成物）
-- `public/characters/default.png` - ずんだもんキャラ画像（共有、生成物）
-- `characters/` - キャラクター画像（ソース）
+- `src/types.ts` - 型定義（Zodスキーマ）
+- `docker-compose.yml` - VOICEVOX 起動設定
+- `characters/<name>/` - キャラクター画像（ソース）
+- `public/projects/<project>/manifest.json` - 前処理出力（生成物）
+- `public/projects/<project>/audio/` - 生成された音声ファイル（生成物）
+- `public/projects/<project>/images/` - スライド用画像（生成物）
+- `public/characters/<name>/` - コピーされたキャラ画像（生成物）
 - `out/<project>.mp4` - レンダリング出力（生成物）
 
 ## コーディング規約
 
 - TypeScript strict
 - Remotion のコンポーネント規約に従う
+- パッケージマネージャーは pnpm を使用

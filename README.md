@@ -31,8 +31,8 @@ Markdown の記法がそのまま動画の構成になります:
 
 ### 前提条件
 
-- Node.js (v18+)
-- [VOICEVOX](https://voicevox.hiroshiba.jp/) が起動していること（デフォルト: `http://localhost:50021`）
+- [mise](https://mise.jdx.dev/)（Node.js と pnpm の管理に使用）
+- [Docker](https://www.docker.com/)（VOICEVOX の起動に使用）
 
 ### セットアップ
 
@@ -43,7 +43,24 @@ git clone https://github.com/motemen/markdown-to-zundamon.git
 npx degit motemen/markdown-to-zundamon markdown-to-zundamon
 
 cd markdown-to-zundamon
-npm install
+
+# mise で Node.js と pnpm をインストール
+mise install
+
+# 依存パッケージをインストール
+pnpm install
+```
+
+### VOICEVOX の起動
+
+```bash
+docker compose up -d
+```
+
+停止する場合:
+
+```bash
+docker compose down
 ```
 
 ## 使い方
@@ -72,14 +89,6 @@ pnpm exec ts-node scripts/render.ts getting-started
 
 `out/<プロジェクト名>.mp4` に動画が出力されます。
 
-### 実行例
-
-```bash
-npm run preprocess -- slides/my-talk.md
-npm run studio -- my-talk       # プレビュー
-npm run render -- my-talk       # out/my-talk.mp4
-```
-
 ## 環境変数
 
 | 変数名 | デフォルト値 | 説明 |
@@ -89,7 +98,7 @@ npm run render -- my-talk       # out/my-talk.mp4
 例: リモートの VOICEVOX サーバーを使う場合:
 
 ```bash
-VOICEVOX_BASE=http://192.168.1.100:50021 npm run preprocess -- slides/my-talk.md
+VOICEVOX_BASE=http://192.168.1.100:50021 pnpm exec ts-node scripts/preprocess.ts slides/my-talk.md
 ```
 
 ## Frontmatter 設定
@@ -139,6 +148,29 @@ characters:
 ```
 
 キャラクター画像は `characters/<キャラ名>/default.png` に配置してください。口パクアニメーション用に `default_active1.png`, `default_active2.png` を追加すると、発話中に口が動くようになります。
+
+### 読み辞書（readingsDictionary）
+
+アルファベットの単語をカタカナで読ませたい場合に指定します。字幕にはアルファベットのまま表示され、VOICEVOX にはカタカナが送られます。
+
+```yaml
+---
+characters:
+  - name: ずんだもん
+    speakerId: 3
+readingsDictionary:
+  npm: エヌピーエム
+  MP4: エムピーフォー
+  Node.js: ノードジェーエス
+  Markdown: マークダウン
+---
+```
+
+個別に `<ruby>` タグで指定することもできます（こちらが優先されます）:
+
+```markdown
+<ruby>npm<rt>エヌピーエム</rt></ruby> をインストールするのだ。
+```
 
 ### BGM 設定
 
@@ -237,6 +269,7 @@ characters:
 │       ├── audio/
 │       ├── bgm/
 │       └── images/
+├── docker-compose.yml    # VOICEVOX 起動設定
 └── out/                  # レンダリング出力
     └── <project>.mp4
 ```

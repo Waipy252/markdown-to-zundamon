@@ -11,6 +11,11 @@ characters:
     color: "#b4456e"
     overflowY: 0.6
     overflowX: 0.1
+readingsDictionary:
+    npm: エヌピーエム                                                                
+    MP4: エムピーフォー
+    Node.js: ノードジェーエス                                                     
+    Markdown: マークダウン
 ---
 
 > # markdown-to-zundamon
