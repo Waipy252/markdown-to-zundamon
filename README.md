@@ -51,7 +51,7 @@ npm install
 ### 1. 前処理（音声生成）
 
 ```bash
-npm run preprocess -- <markdownファイル>
+pnpm exec ts-node scripts/preprocess.ts ./manuscripts/getting-started.md
 ```
 
 Markdown を解析し、VOICEVOX で音声を生成して `public/projects/<プロジェクト名>/` 以下にマニフェストと音声ファイルを出力します。プロジェクト名は Markdown ファイル名（拡張子なし）から自動決定されます。
