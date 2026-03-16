@@ -15,7 +15,7 @@ const manifestPath = path.resolve(
 );
 if (!fs.existsSync(manifestPath)) {
   console.error(`Error: manifest not found at ${manifestPath}`);
-  console.error(`Run first: npm run preprocess -- <your-markdown-file.md>`);
+  console.error(`Run first: pnpm exec ts-node scripts/preprocess.ts <your-markdown-file.md>`);
   process.exit(1);
 }
 

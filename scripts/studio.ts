@@ -3,8 +3,8 @@ import * as path from "path";
 
 const projectName = process.argv[2];
 if (!projectName) {
-  console.error("Usage: npm run studio -- <project-name>");
-  console.error("Example: npm run studio -- example");
+  console.error("Usage: pnpm exec ts-node scripts/studio.ts<project-name>");
+  console.error("Example: pnpm exec ts-node scripts/studio.ts example");
   process.exit(1);
 }
 const props = JSON.stringify({ projectName });

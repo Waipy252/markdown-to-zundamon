@@ -561,8 +561,8 @@ async function main() {
   }
 
   console.log(`\nNext steps:`);
-  console.log(`  Preview: npm run studio -- ${projectName}`);
-  console.log(`  Render:  npm run render -- ${projectName}`);
+  console.log(`  Preview: pnpm exec ts-node scripts/studio.ts ${projectName}`);
+  console.log(`  Render:  pnpm exec ts-node scripts/render.ts ${projectName}`);
 }
 
 main().catch((err) => {
