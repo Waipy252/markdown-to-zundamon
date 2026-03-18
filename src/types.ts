@@ -10,6 +10,8 @@ export const CharacterSchema = z.object({
   overflowY: z.number().default(0.4),
   overflowX: z.number().default(0.1),
   height: z.number().default(800),
+  speed: z.number().positive().optional(),
+  styles: z.record(z.string(), z.number()).optional(),
   // image path は name から自動解決: characters/<name>/default.png
   activeImages: z.array(z.string()).optional(),
 });
@@ -39,6 +41,7 @@ export const ManifestConfigSchema = z.object({
     .enum(["top-right", "top-left"])
     .default("top-right"),
   readingsDictionary: z.record(z.string(), z.string()).optional(),
+  speed: z.number().positive().default(1.0),
 });
 
 export const SegmentSchema = z.object({

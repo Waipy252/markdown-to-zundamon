@@ -46,9 +46,11 @@ async function synthesize(
   text: string,
   speakerId: number,
   audioDir: string,
-  projectName: string
+  projectName: string,
+  speed: number = 1.0
 ): Promise<{ audioPath: string; durationSec: number }> {
-  const hash = shortHash(text);
+  const cacheKey = `${speakerId}__${text}${speed !== 1.0 ? `__speed${speed}` : ""}`;
+  const hash = shortHash(cacheKey);
   const sanitized = sanitizeForFilename(text);
   const filename = `${hash}-${sanitized}.wav`;
   const audioPath = path.join(audioDir, filename);
@@ -83,6 +85,9 @@ async function synthesize(
     );
   }
   const audioQuery = await queryRes.json();
+  if (speed !== 1.0) {
+    audioQuery.speedScale = speed;
+  }
 
   let synthRes: Response;
   try {
@@ -243,17 +248,17 @@ function parsePauseDirective(
   return { type: "pause", ms };
 }
 
-/** Parse speaker tag [キャラ名] from the beginning of a line */
-const SPEAKER_TAG_RE = /^\[(.+?)\]\s*/;
+/** Parse speaker tag [キャラ名] or [キャラ名#スタイル] from the beginning of a line */
+const SPEAKER_TAG_RE = /^\[([^#\]]+?)(?:#([^\]]+?))?\]\s*/;
 
 function parseSpeakerTag(
   line: string
-): { character: string; text: string } | null {
+): { character: string; style?: string; text: string } | null {
   const m = line.match(SPEAKER_TAG_RE);
   if (!m) return null;
   // Don't match pause directives
   if (PAUSE_RE.test(line.trim())) return null;
-  return { character: m[1], text: line.slice(m[0].length) };
+  return { character: m[1], style: m[2], text: line.slice(m[0].length) };
 }
 
 /** Build a map from character name to Character config */
@@ -452,8 +457,20 @@ async function main() {
             const char = characterMap.get(speakerTag.character);
             if (char) {
               speechText = speakerTag.text;
-              speakerId = char.speakerId;
               characterName = char.name;
+              if (speakerTag.style) {
+                const styleId = char.styles?.[speakerTag.style];
+                if (styleId !== undefined) {
+                  speakerId = styleId;
+                } else {
+                  console.warn(
+                    `  [warn] Unknown style "${speakerTag.style}" for character "${char.name}", using default`
+                  );
+                  speakerId = char.speakerId;
+                }
+              } else {
+                speakerId = char.speakerId;
+              }
             } else {
               console.warn(
                 `  [warn] Unknown character "${speakerTag.character}", using default`
@@ -484,12 +501,18 @@ async function main() {
             });
           }
 
+          const currentChar = characterName
+            ? characterMap.get(characterName)
+            : defaultCharacter;
+          const speed = currentChar?.speed ?? config.speed;
+
           console.log(`[speech] ${displayText.slice(0, 40)}...`);
           const { audioPath, durationSec } = await synthesize(
             voicevoxText,
             speakerId,
             audioDir,
-            projectName
+            projectName,
+            speed
           );
           const durationInFrames = Math.ceil(durationSec * config.fps);
           segments.push({

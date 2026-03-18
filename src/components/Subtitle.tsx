@@ -18,7 +18,10 @@ const SegmentedText: React.FC<{ text: string }> = ({ text }) => {
   return (
     <span style={{ wordBreak: "keep-all" }}>
       {segments.map((seg, i) => (
-        <span key={i}>{seg}</span>
+        <React.Fragment key={i}>
+          <span>{seg}</span>
+          {i < segments.length - 1 && <wbr />}
+        </React.Fragment>
       ))}
     </span>
   );
