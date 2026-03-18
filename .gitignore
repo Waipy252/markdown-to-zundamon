@@ -4,3 +4,6 @@ out/
 public/
 characters/*
 !characters/README.md
+.claude/
+サムネ素材/
+research/
