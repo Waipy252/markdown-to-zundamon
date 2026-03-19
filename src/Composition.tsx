@@ -142,39 +142,73 @@ export const ZundamonComposition: React.FC<Record<string, unknown>> = (props) =>
       }}
     >
 
-      {/* BGM */}
-      {manifest.bgmFile && config.bgm && (
-        <Sequence from={0} durationInFrames={manifest.totalDurationInFrames}>
-          <Html5Audio
-            src={staticFile(manifest.bgmFile)}
-            volume={(f) => {
-              const fps = config.fps;
-              const total = manifest.totalDurationInFrames;
-              const fadeInFrames = Math.ceil((config.bgm!.fadeInMs / 1000) * fps);
-              const fadeOutFrames = Math.ceil((config.bgm!.fadeOutMs / 1000) * fps);
-              const baseVolume = config.bgm!.volume;
+      {/* BGM: scene-based (takes priority) or global fallback */}
+      {manifest.bgmSegments && manifest.bgmSegments.length > 0
+        ? manifest.bgmSegments.map((bgmSeg, i) => {
+            const baseVolume = config.bgm?.volume ?? 0.1;
+            const fadeInMs = config.bgm?.fadeInMs ?? 0;
+            const fadeOutMs = config.bgm?.fadeOutMs ?? 1000;
+            const duration = bgmSeg.endFrame - bgmSeg.startFrame;
+            return (
+              <Sequence key={`bgm-${i}`} from={bgmSeg.startFrame} durationInFrames={duration}>
+                <Html5Audio
+                  src={staticFile(bgmSeg.file)}
+                  volume={(f) => {
+                    const fps = config.fps;
+                    const fadeInFrames = Math.ceil((fadeInMs / 1000) * fps);
+                    const fadeOutFrames = Math.ceil((fadeOutMs / 1000) * fps);
+                    let vol = baseVolume;
+                    if (fadeInFrames > 0) {
+                      vol *= interpolate(f, [0, fadeInFrames], [0, 1], {
+                        extrapolateLeft: "clamp",
+                        extrapolateRight: "clamp",
+                      });
+                    }
+                    if (fadeOutFrames > 0) {
+                      vol *= interpolate(f, [duration - fadeOutFrames, duration], [1, 0], {
+                        extrapolateLeft: "clamp",
+                        extrapolateRight: "clamp",
+                      });
+                    }
+                    return vol;
+                  }}
+                  loop
+                />
+              </Sequence>
+            );
+          })
+        : manifest.bgmFile && config.bgm && (
+            <Sequence from={0} durationInFrames={manifest.totalDurationInFrames}>
+              <Html5Audio
+                src={staticFile(manifest.bgmFile)}
+                volume={(f) => {
+                  const fps = config.fps;
+                  const total = manifest.totalDurationInFrames;
+                  const fadeInFrames = Math.ceil((config.bgm!.fadeInMs / 1000) * fps);
+                  const fadeOutFrames = Math.ceil((config.bgm!.fadeOutMs / 1000) * fps);
+                  const baseVolume = config.bgm!.volume;
 
-              let vol = baseVolume;
-              if (fadeInFrames > 0) {
-                vol *= interpolate(f, [0, fadeInFrames], [0, 1], {
-                  extrapolateLeft: "clamp",
-                  extrapolateRight: "clamp",
-                });
-              }
-              if (fadeOutFrames > 0) {
-                vol *= interpolate(
-                  f,
-                  [total - fadeOutFrames, total],
-                  [1, 0],
-                  { extrapolateLeft: "clamp", extrapolateRight: "clamp" }
-                );
-              }
-              return vol;
-            }}
-            loop
-          />
-        </Sequence>
-      )}
+                  let vol = baseVolume;
+                  if (fadeInFrames > 0) {
+                    vol *= interpolate(f, [0, fadeInFrames], [0, 1], {
+                      extrapolateLeft: "clamp",
+                      extrapolateRight: "clamp",
+                    });
+                  }
+                  if (fadeOutFrames > 0) {
+                    vol *= interpolate(
+                      f,
+                      [total - fadeOutFrames, total],
+                      [1, 0],
+                      { extrapolateLeft: "clamp", extrapolateRight: "clamp" }
+                    );
+                  }
+                  return vol;
+                }}
+                loop
+              />
+            </Sequence>
+          )}
 
       {/* Audio sequences */}
       {timeline.map(

@@ -7,7 +7,7 @@ import matter from "gray-matter";
 import * as fs from "fs";
 import * as path from "path";
 import * as crypto from "crypto";
-import type { Segment, Manifest, ManifestConfig, Character } from "../src/types";
+import type { Segment, Manifest, ManifestConfig, Character, SceneBgm } from "../src/types";
 import { ManifestConfigSchema } from "../src/types";
 
 const VOICEVOX_BASE = process.env.VOICEVOX_BASE ?? "http://localhost:50021";
@@ -235,6 +235,17 @@ function processRubyTags(text: string): { displayText: string; speechText: strin
   return { displayText, speechText };
 }
 
+/** Parse [bgm: filename] or [bgm: off] directives */
+const BGM_DIRECTIVE_RE = /^\[bgm:\s*(.+?)\s*\]$/i;
+
+function parseBgmDirective(
+  line: string
+): { src: string | null } | null {
+  const m = line.trim().match(BGM_DIRECTIVE_RE);
+  if (!m) return null;
+  return { src: m[1].toLowerCase() === "off" ? null : m[1] };
+}
+
 /** Parse [pause: 500ms] directives from text, returning speech lines and pause segments */
 const PAUSE_RE = /^\[pause:\s*(\d+)(ms|s)\]$/;
 
@@ -348,6 +359,13 @@ async function main() {
 
   const segments: Segment[] = [];
 
+  // Track BGM changes: each entry records a BGM switch at a given frame position
+  interface BgmChange {
+    src: string | null; // null = stop BGM
+    startFrame: number;
+  }
+  const bgmChanges: BgmChange[] = [];
+
   // Build character map for speaker tag resolution
   const characterMap = buildCharacterMap(config.characters, config.speakerId);
   // When only one character, use it as default (no tag needed)
@@ -446,6 +464,12 @@ async function main() {
             durationInFrames,
           });
           speechCount = 0; // reset so next speech doesn't get a gap
+        } else if (parseBgmDirective(trimmed) !== null) {
+          const bgm = parseBgmDirective(trimmed)!;
+          const currentFrame = segments.reduce((sum, s) => sum + s.durationInFrames, 0);
+          bgmChanges.push({ src: bgm.src, startFrame: currentFrame });
+          console.log(`[bgm] ${bgm.src ?? "off"} at frame ${currentFrame}`);
+          // BGM directives produce no speech; don't increment speechCount
         } else {
           // Parse speaker tag
           let speechText = trimmed;
@@ -532,6 +556,57 @@ async function main() {
   // Copy character images (before manifest write so activeImages is populated)
   copyCharacterImages(config.characters);
 
+  // Compute scene BGM segments from bgmChanges
+  const totalDurationInFrames = segments.reduce(
+    (sum, s) => sum + s.durationInFrames,
+    0
+  );
+
+  const bgmSegments: SceneBgm[] = [];
+  if (bgmChanges.length > 0) {
+    // Copy scene BGM files (deduplicated by source path)
+    const copiedBgmFiles = new Map<string, string>(); // src -> public path
+    const bgmDir = path.join(projectDir, "bgm");
+
+    for (let i = 0; i < bgmChanges.length; i++) {
+      const change = bgmChanges[i];
+      if (change.src === null) continue; // [bgm: off] — no segment
+
+      const endFrame =
+        i + 1 < bgmChanges.length
+          ? bgmChanges[i + 1].startFrame
+          : totalDurationInFrames;
+
+      if (!copiedBgmFiles.has(change.src)) {
+        const candidates = [
+          path.resolve(mdDir, change.src),
+          path.resolve(__dirname, "..", change.src),
+        ];
+        const resolvedBgm = candidates.find((p) => fs.existsSync(p));
+        if (!resolvedBgm) {
+          throw new Error(
+            `BGM file not found: "${change.src}"\n` +
+            `  Tried:\n` +
+            candidates.map((p) => `    - ${p}`).join("\n")
+          );
+        }
+        fs.mkdirSync(bgmDir, { recursive: true });
+        const bgmFilename = path.basename(resolvedBgm);
+        const bgmDest = path.join(bgmDir, bgmFilename);
+        fs.copyFileSync(resolvedBgm, bgmDest);
+        const publicPath = `projects/${projectName}/bgm/${bgmFilename}`;
+        copiedBgmFiles.set(change.src, publicPath);
+        console.log(`  [bgm] ${change.src} → ${publicPath}`);
+      }
+
+      bgmSegments.push({
+        file: copiedBgmFiles.get(change.src)!,
+        startFrame: change.startFrame,
+        endFrame,
+      });
+    }
+  }
+
   // Copy BGM file if configured
   let bgmFile: string | undefined;
   if (config.bgm) {
@@ -558,16 +633,12 @@ async function main() {
     console.log(`  [bgm] ${bgmSrc} → ${bgmFile}`);
   }
 
-  const totalDurationInFrames = segments.reduce(
-    (sum, s) => sum + s.durationInFrames,
-    0
-  );
-
   const manifest: Manifest = {
     config,
     totalDurationInFrames,
     segments,
     ...(bgmFile ? { bgmFile } : {}),
+    ...(bgmSegments.length > 0 ? { bgmSegments } : {}),
   };
 
   const manifestPath = path.join(projectDir, "manifest.json");
