@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import {
   AbsoluteFill,
   Html5Audio,
+  Img,
   interpolate,
   Sequence,
   staticFile,
@@ -90,10 +91,15 @@ export const ZundamonComposition: React.FC<Record<string, unknown>> = (props) =>
     config.slideFontFamily ?? config.fontFamily
   );
 
-  // Build timeline: compute start frame for each segment
+  // Jingle duration in frames
+  const jingleDurationInFrames = config.jingle
+    ? Math.ceil((config.jingle.durationMs / 1000) * config.fps)
+    : 0;
+
+  // Build timeline: compute start frame for each segment (offset by jingle)
   const timeline: { segment: (typeof segments)[number]; startFrame: number }[] =
     [];
-  let currentFrame = 0;
+  let currentFrame = jingleDurationInFrames;
   for (const segment of segments) {
     timeline.push({ segment, startFrame: currentFrame });
     currentFrame += segment.durationInFrames;
@@ -142,6 +148,40 @@ export const ZundamonComposition: React.FC<Record<string, unknown>> = (props) =>
       }}
     >
 
+      {/* Jingle */}
+      {jingleDurationInFrames > 0 && (
+        <Sequence from={0} durationInFrames={jingleDurationInFrames}>
+          <AbsoluteFill>
+            <Img
+              src={staticFile(config.jingle!.imagePath)}
+              style={{ width: "100%", height: "100%", objectFit: "cover" }}
+            />
+            <AbsoluteFill
+              style={{
+                display: "flex",
+                alignItems: "flex-end",
+                justifyContent: "center",
+                paddingBottom: "8%",
+              }}
+            >
+              <div
+                style={{
+                  fontFamily: `'${baseFontFamily}', sans-serif`,
+                  fontSize: 72,
+                  fontWeight: "bold",
+                  color: "#ffffff",
+                  textShadow: "0 0 8px rgba(0,0,0,0.8), 0 4px 12px rgba(0,0,0,0.6)",
+                  letterSpacing: "0.05em",
+                }}
+              >
+                {config.jingle!.text}
+              </div>
+            </AbsoluteFill>
+            <Html5Audio src={staticFile(config.jingle!.audioPath)} />
+          </AbsoluteFill>
+        </Sequence>
+      )}
+
       {/* BGM: scene-based (takes priority) or global fallback */}
       {manifest.bgmSegments && manifest.bgmSegments.length > 0
         ? manifest.bgmSegments.map((bgmSeg, i) => {
@@ -178,7 +218,7 @@ export const ZundamonComposition: React.FC<Record<string, unknown>> = (props) =>
             );
           })
         : manifest.bgmFile && config.bgm && (
-            <Sequence from={0} durationInFrames={manifest.totalDurationInFrames}>
+            <Sequence from={jingleDurationInFrames} durationInFrames={manifest.totalDurationInFrames - jingleDurationInFrames}>
               <Html5Audio
                 src={staticFile(manifest.bgmFile)}
                 volume={(f) => {

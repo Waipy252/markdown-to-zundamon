@@ -557,10 +557,14 @@ async function main() {
   copyCharacterImages(config.characters);
 
   // Compute scene BGM segments from bgmChanges
-  const totalDurationInFrames = segments.reduce(
+  const contentDurationInFrames = segments.reduce(
     (sum, s) => sum + s.durationInFrames,
     0
   );
+  const jingleDurationInFrames = config.jingle
+    ? Math.ceil((config.jingle.durationMs / 1000) * config.fps)
+    : 0;
+  const totalDurationInFrames = jingleDurationInFrames + contentDurationInFrames;
 
   const bgmSegments: SceneBgm[] = [];
   if (bgmChanges.length > 0) {
@@ -574,7 +578,7 @@ async function main() {
 
       const endFrame =
         i + 1 < bgmChanges.length
-          ? bgmChanges[i + 1].startFrame
+          ? bgmChanges[i + 1].startFrame + jingleDurationInFrames
           : totalDurationInFrames;
 
       if (!copiedBgmFiles.has(change.src)) {
@@ -601,7 +605,7 @@ async function main() {
 
       bgmSegments.push({
         file: copiedBgmFiles.get(change.src)!,
-        startFrame: change.startFrame,
+        startFrame: change.startFrame + jingleDurationInFrames,
         endFrame,
       });
     }
@@ -609,7 +613,7 @@ async function main() {
 
   // Copy BGM file if configured
   let bgmFile: string | undefined;
-  if (config.bgm) {
+  if (config.bgm && config.bgm.src) {
     const bgmSrc = config.bgm.src;
     // Try resolving: 1) relative to md file, 2) relative to project root
     const candidates = [
@@ -650,7 +654,7 @@ async function main() {
 
   // Output chapter timestamps
   const chapters: { title: string; frame: number }[] = [];
-  let framePos = 0;
+  let framePos = jingleDurationInFrames;
   for (const seg of segments) {
     if (seg.type === "chapter") {
       chapters.push({ title: seg.text, frame: framePos });

@@ -23,6 +23,13 @@ export const BgmConfigSchema = z.object({
   fadeOutMs: z.number().min(0).default(1000),
 });
 
+export const JingleConfigSchema = z.object({
+  durationMs: z.number().default(3000),
+  imagePath: z.string().default(""),
+  text: z.string().default(""),
+  audioPath: z.string().default(""),
+});
+
 export const ManifestConfigSchema = z.object({
   fps: z.number().default(30),
   width: z.number().default(1920),
@@ -37,6 +44,7 @@ export const ManifestConfigSchema = z.object({
   slideFontFamily: z.string().optional(),
   codeHighlightTheme: z.string().default("oneLight"),
   bgm: BgmConfigSchema.optional(),
+  jingle: JingleConfigSchema.optional(),
   chapterTitlePosition: z
     .enum(["top-right", "top-left"])
     .default("top-right"),
