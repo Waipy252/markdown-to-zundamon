@@ -9,16 +9,30 @@ import {
   useCurrentFrame,
   useDelayRender,
 } from "remotion";
-import { getAvailableFonts } from "@remotion/google-fonts";
+import {
+  loadFont as loadMPLUSRounded1c,
+  fontFamily as mPLUSRounded1cFamily,
+} from "@remotion/google-fonts/MPLUSRounded1c";
 import { CompositionPropsSchema } from "./types";
 import { CharacterDisplay } from "./components/CharacterDisplay";
 import { ChapterTitle } from "./components/ChapterTitle";
 import { Subtitle } from "./components/Subtitle";
 import { SlideContent } from "./components/SlideContent";
 
+// Static font registry: add entries here when new fonts are needed.
+const STATIC_FONTS: Record<
+  string,
+  { load: () => ReturnType<typeof loadMPLUSRounded1c>; fontFamily: string }
+> = {
+  "M PLUS Rounded 1c": {
+    load: loadMPLUSRounded1c,
+    fontFamily: mPLUSRounded1cFamily,
+  },
+};
+
 /**
  * Load Google Fonts via useDelayRender and return resolved CSS font-family names.
- * The actual CSS font name may differ from the config name (e.g. the registry key).
+ * Uses static per-font imports to avoid webpack dynamic chunk splitting issues.
  */
 function useGoogleFonts(fontNames: string[]): Map<string, string> {
   const { delayRender, continueRender, cancelRender } = useDelayRender();
@@ -39,17 +53,13 @@ function useGoogleFonts(fontNames: string[]): Map<string, string> {
 
     Promise.all(
       uniqueNames.map(async (name) => {
-        const font = getAvailableFonts().find((f) => f.fontFamily === name);
-        if (!font) {
-          console.warn(`Font "${name}" not found in @remotion/google-fonts`);
+        const entry = STATIC_FONTS[name];
+        if (!entry) {
+          console.warn(`Font "${name}" not in static registry, using as-is`);
           return [name, name] as const;
         }
-        const loaded = await font.load();
-        await loaded.loadFont().waitUntilDone();
-        console.log(
-          `Font loaded: "${name}" → CSS family "${loaded.fontFamily}"`
-        );
-        return [name, loaded.fontFamily] as const;
+        await entry.load().waitUntilDone();
+        return [name, entry.fontFamily] as const;
       })
     )
       .then((entries) => {
