@@ -124,6 +124,7 @@ export const ZundamonComposition: React.FC<Record<string, unknown>> = (props) =>
   // Find current speech segment for subtitle and active character
   let currentSpeechText: string | null = null;
   let currentSpeechCharacter: string | null = null;
+  let currentSpeechStyle: string | null = null;
   for (const entry of timeline) {
     if (
       entry.segment.type === "speech" &&
@@ -132,6 +133,7 @@ export const ZundamonComposition: React.FC<Record<string, unknown>> = (props) =>
     ) {
       currentSpeechText = entry.segment.text;
       currentSpeechCharacter = entry.segment.character ?? null;
+      currentSpeechStyle = entry.segment.style ?? null;
     }
   }
 
@@ -250,6 +252,13 @@ export const ZundamonComposition: React.FC<Record<string, unknown>> = (props) =>
             </Sequence>
           )}
 
+      {/* Sound effects */}
+      {manifest.soundEffects?.map((se, i) => (
+        <Sequence key={`se-${i}`} from={se.startFrame} durationInFrames={manifest.totalDurationInFrames - se.startFrame}>
+          <Html5Audio src={staticFile(se.file)} />
+        </Sequence>
+      ))}
+
       {/* Audio sequences (speech + jingle) */}
       {timeline.map(
         (entry, i) =>
@@ -323,6 +332,8 @@ export const ZundamonComposition: React.FC<Record<string, unknown>> = (props) =>
           activeImageSrcs={char.activeImages?.map(
             (img) => `characters/${char.name}/${img}`
           )}
+          style={currentSpeechCharacter === char.name ? currentSpeechStyle ?? undefined : undefined}
+          characterName={char.name}
           position={char.position}
           flip={char.flip}
           overflowBottom={char.overflowY}

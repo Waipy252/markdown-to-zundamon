@@ -61,6 +61,7 @@ export const SegmentSchema = z.object({
   character: z.string().optional(),
   chapterLevel: z.number().optional(),
   imagePath: z.string().optional(),
+  style: z.string().optional(),
 });
 
 export const SceneBgmSchema = z.object({
@@ -69,12 +70,18 @@ export const SceneBgmSchema = z.object({
   endFrame: z.number(),
 });
 
+export const SoundEffectSchema = z.object({
+  file: z.string(),
+  startFrame: z.number(),
+});
+
 export const ManifestSchema = z.object({
   config: ManifestConfigSchema,
   totalDurationInFrames: z.number(),
   segments: z.array(SegmentSchema),
   bgmFile: z.string().optional(),
   bgmSegments: z.array(SceneBgmSchema).optional(),
+  soundEffects: z.array(SoundEffectSchema).optional(),
 });
 
 export const CompositionPropsSchema = z.object({
@@ -88,5 +95,6 @@ export type ManifestConfig = z.infer<typeof ManifestConfigSchema>;
 export type Segment = z.infer<typeof SegmentSchema>;
 export type SegmentType = Segment["type"];
 export type SceneBgm = z.infer<typeof SceneBgmSchema>;
+export type SoundEffect = z.infer<typeof SoundEffectSchema>;
 export type Manifest = z.infer<typeof ManifestSchema>;
 export type CompositionPropsType = z.infer<typeof CompositionPropsSchema>;

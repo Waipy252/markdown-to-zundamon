@@ -7,7 +7,7 @@ import matter from "gray-matter";
 import * as fs from "fs";
 import * as path from "path";
 import * as crypto from "crypto";
-import type { Segment, Manifest, ManifestConfig, Character, SceneBgm } from "../src/types";
+import type { Segment, Manifest, ManifestConfig, Character, SceneBgm, SoundEffect } from "../src/types";
 import { ManifestConfigSchema } from "../src/types";
 
 const VOICEVOX_BASE = process.env.VOICEVOX_BASE ?? "http://localhost:50021";
@@ -278,6 +278,15 @@ function parseJingleDirective(
   return { src, ms, imagePath };
 }
 
+/** Parse [se: filename] directives */
+const SE_DIRECTIVE_RE = /^\[se:\s*(.+?)\s*\]$/i;
+
+function parseSeDirective(line: string): { src: string } | null {
+  const m = line.trim().match(SE_DIRECTIVE_RE);
+  if (!m) return null;
+  return { src: m[1] };
+}
+
 /** Parse [pause: 500ms] directives from text, returning speech lines and pause segments */
 const PAUSE_RE = /^\[pause:\s*(\d+)(ms|s)\]$/;
 
@@ -350,6 +359,21 @@ function copyCharacterImages(characters: Character[]): void {
         console.log(`  [char] ${char.name} → characters/${char.name}/${file}`);
       }
     }
+
+    // Copy style images (e.g. ささやき.png, なみだめ.png)
+    if (char.styles) {
+      for (const styleName of Object.keys(char.styles)) {
+        const styleSrc = path.join(charDir, `${styleName}.png`);
+        if (fs.existsSync(styleSrc)) {
+          const styleDst = path.resolve(
+            __dirname,
+            `../public/characters/${char.name}/${styleName}.png`
+          );
+          fs.copyFileSync(styleSrc, styleDst);
+          console.log(`  [char] ${char.name} → characters/${char.name}/${styleName}.png`);
+        }
+      }
+    }
   }
 }
 
@@ -397,6 +421,13 @@ async function main() {
     startFrame: number;
   }
   const bgmChanges: BgmChange[] = [];
+
+  // Track sound effects: each entry records an SE at a given frame position
+  interface SeEntry {
+    src: string;
+    startFrame: number;
+  }
+  const seEntries: SeEntry[] = [];
 
   // Build character map for speaker tag resolution
   const characterMap = buildCharacterMap(config.characters, config.speakerId);
@@ -479,6 +510,7 @@ async function main() {
       // Track current speaker within a paragraph
       let currentCharacterName: string | undefined = defaultCharacter?.name;
       let currentSpeakerId: number = defaultCharacter?.speakerId ?? config.speakerId;
+      let currentStyle: string | undefined;
 
       for (const line of lines) {
         const trimmed = line.trim();
@@ -570,6 +602,12 @@ async function main() {
           bgmChanges.push({ src: bgm.src, startFrame: currentFrame });
           console.log(`[bgm] ${bgm.src ?? "off"} at frame ${currentFrame}`);
           // BGM directives produce no speech; don't increment speechCount
+        } else if (parseSeDirective(trimmed) !== null) {
+          const se = parseSeDirective(trimmed)!;
+          const currentFrame = segments.reduce((sum, s) => sum + s.durationInFrames, 0);
+          seEntries.push({ src: se.src, startFrame: currentFrame });
+          console.log(`[se] ${se.src} at frame ${currentFrame}`);
+          // SE directives produce no segment; don't increment speechCount
         } else {
           // Parse speaker tag
           let speechText = trimmed;
@@ -586,14 +624,17 @@ async function main() {
                 const styleId = char.styles?.[speakerTag.style];
                 if (styleId !== undefined) {
                   speakerId = styleId;
+                  currentStyle = speakerTag.style;
                 } else {
                   console.warn(
                     `  [warn] Unknown style "${speakerTag.style}" for character "${char.name}", using default`
                   );
                   speakerId = char.speakerId;
+                  currentStyle = undefined;
                 }
               } else {
                 speakerId = char.speakerId;
+                currentStyle = undefined;
               }
             } else {
               console.warn(
@@ -602,6 +643,7 @@ async function main() {
               speechText = speakerTag.text;
               characterName = defaultCharacter?.name;
               speakerId = defaultCharacter?.speakerId ?? config.speakerId;
+              currentStyle = undefined;
             }
             // Update current speaker for subsequent lines
             currentCharacterName = characterName;
@@ -645,6 +687,7 @@ async function main() {
             audioFile: audioPath,
             durationInFrames,
             ...(characterName ? { character: characterName } : {}),
+            ...(currentStyle ? { style: currentStyle } : {}),
           });
           speechCount++;
         }
@@ -737,12 +780,49 @@ async function main() {
     console.log(`  [bgm] ${bgmSrc} → ${bgmFile}`);
   }
 
+  // Process sound effects: copy files and build SE list with jingle-offset frames
+  const soundEffects: SoundEffect[] = [];
+  if (seEntries.length > 0) {
+    const copiedSeFiles = new Map<string, string>(); // src -> public path
+    const seDir = path.join(projectDir, "soundeffect");
+
+    for (const entry of seEntries) {
+      if (!copiedSeFiles.has(entry.src)) {
+        const candidates = [
+          path.resolve(mdDir, entry.src),
+          path.resolve(__dirname, "..", entry.src),
+        ];
+        const resolvedSe = candidates.find((p) => fs.existsSync(p));
+        if (!resolvedSe) {
+          throw new Error(
+            `Sound effect file not found: "${entry.src}"\n` +
+            `  Tried:\n` +
+            candidates.map((p) => `    - ${p}`).join("\n")
+          );
+        }
+        fs.mkdirSync(seDir, { recursive: true });
+        const seFilename = path.basename(resolvedSe);
+        const seDest = path.join(seDir, seFilename);
+        fs.copyFileSync(resolvedSe, seDest);
+        const publicPath = `projects/${projectName}/soundeffect/${seFilename}`;
+        copiedSeFiles.set(entry.src, publicPath);
+        console.log(`  [se] ${entry.src} → ${publicPath}`);
+      }
+
+      soundEffects.push({
+        file: copiedSeFiles.get(entry.src)!,
+        startFrame: entry.startFrame + jingleDurationInFrames,
+      });
+    }
+  }
+
   const manifest: Manifest = {
     config,
     totalDurationInFrames,
     segments,
     ...(bgmFile ? { bgmFile } : {}),
     ...(bgmSegments.length > 0 ? { bgmSegments } : {}),
+    ...(soundEffects.length > 0 ? { soundEffects } : {}),
   };
 
   const manifestPath = path.join(projectDir, "manifest.json");

@@ -6,6 +6,10 @@ interface Props {
   imageSrc: string;
   /** Active (lip-sync) image sources to alternate between when speaking */
   activeImageSrcs?: string[];
+  /** Current speech style (e.g. "ささやき", "なみだめ") */
+  style?: string;
+  /** Character name for resolving style image paths */
+  characterName: string;
   position?: "left" | "right";
   flip?: boolean;
   /** How much of the image extends below the viewport (0-1). Default: 0.3 */
@@ -20,6 +24,8 @@ export const CharacterDisplay: React.FC<Props> = ({
   isSpeaking,
   imageSrc,
   activeImageSrcs,
+  style,
+  characterName,
   position = "right",
   flip = false,
   overflowBottom = 0.3,
@@ -30,9 +36,12 @@ export const CharacterDisplay: React.FC<Props> = ({
   // Subtle bounce animation when speaking
   const offsetY = isSpeaking ? Math.sin(frame * 0.3) * 5 : 0;
 
-  // Lip-sync: alternate between active images every 4 frames, fall back to default when not speaking
+  // Determine display image: style image > lip-sync active images > default
   let displayImageSrc = imageSrc;
-  if (isSpeaking && activeImageSrcs && activeImageSrcs.length > 0) {
+  if (isSpeaking && style) {
+    // Use style-specific image (e.g. characters/ずんだもん/ささやき.png)
+    displayImageSrc = `characters/${characterName}/${style}.png`;
+  } else if (isSpeaking && activeImageSrcs && activeImageSrcs.length > 0) {
     const index = Math.floor(frame / 4) % activeImageSrcs.length;
     displayImageSrc = activeImageSrcs[index];
   }
