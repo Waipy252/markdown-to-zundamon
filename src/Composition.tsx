@@ -276,7 +276,7 @@ export const ZundamonComposition: React.FC<Record<string, unknown>> = (props) =>
               from={entry.startFrame}
               durationInFrames={entry.segment.durationInFrames}
             >
-              <Html5Audio src={staticFile(entry.segment.audioFile)} />
+              <Html5Audio src={staticFile(entry.segment.audioFile)} volume={entry.segment.type === "speech" ? 2.5 : 1} />
             </Sequence>
           )
       )}
