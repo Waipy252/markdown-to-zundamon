@@ -105,6 +105,14 @@ export const ZundamonComposition: React.FC<Record<string, unknown>> = (props) =>
     currentFrame += segment.durationInFrames;
   }
 
+  // Check if currently in a jingle segment
+  const isInJingle = timeline.some(
+    (entry) =>
+      entry.segment.type === "jingle" &&
+      frame >= entry.startFrame &&
+      frame < entry.startFrame + entry.segment.durationInFrames
+  );
+
   // Find current slide: last slide segment whose startFrame <= current frame
   let currentSlideMarkdown: string | null = null;
   for (const entry of timeline) {
@@ -161,9 +169,8 @@ export const ZundamonComposition: React.FC<Record<string, unknown>> = (props) =>
             <AbsoluteFill
               style={{
                 display: "flex",
-                alignItems: "flex-end",
+                alignItems: "center",
                 justifyContent: "center",
-                paddingBottom: "8%",
               }}
             >
               <div
@@ -187,49 +194,18 @@ export const ZundamonComposition: React.FC<Record<string, unknown>> = (props) =>
       {/* BGM: scene-based (takes priority) or global fallback */}
       {manifest.bgmSegments && manifest.bgmSegments.length > 0
         ? manifest.bgmSegments.map((bgmSeg, i) => {
-            const baseVolume = config.bgm?.volume ?? 0.1;
-            const fadeInMs = config.bgm?.fadeInMs ?? 0;
-            const fadeOutMs = config.bgm?.fadeOutMs ?? 1000;
-            const duration = bgmSeg.endFrame - bgmSeg.startFrame;
-            return (
-              <Sequence key={`bgm-${i}`} from={bgmSeg.startFrame} durationInFrames={duration}>
-                <Html5Audio
-                  src={staticFile(bgmSeg.file)}
-                  volume={(f) => {
-                    const fps = config.fps;
-                    const fadeInFrames = Math.ceil((fadeInMs / 1000) * fps);
-                    const fadeOutFrames = Math.ceil((fadeOutMs / 1000) * fps);
-                    let vol = baseVolume;
-                    if (fadeInFrames > 0) {
-                      vol *= interpolate(f, [0, fadeInFrames], [0, 1], {
-                        extrapolateLeft: "clamp",
-                        extrapolateRight: "clamp",
-                      });
-                    }
-                    if (fadeOutFrames > 0) {
-                      vol *= interpolate(f, [duration - fadeOutFrames, duration], [1, 0], {
-                        extrapolateLeft: "clamp",
-                        extrapolateRight: "clamp",
-                      });
-                    }
-                    return vol;
-                  }}
-                  loop
-                />
-              </Sequence>
-            );
-          })
-        : manifest.bgmFile && config.bgm && (
-            <Sequence from={jingleDurationInFrames} durationInFrames={manifest.totalDurationInFrames - jingleDurationInFrames}>
+          const baseVolume = config.bgm?.volume ?? 0.1;
+          const fadeInMs = config.bgm?.fadeInMs ?? 0;
+          const fadeOutMs = config.bgm?.fadeOutMs ?? 1000;
+          const duration = bgmSeg.endFrame - bgmSeg.startFrame;
+          return (
+            <Sequence key={`bgm-${i}`} from={bgmSeg.startFrame} durationInFrames={duration}>
               <Html5Audio
-                src={staticFile(manifest.bgmFile)}
+                src={staticFile(bgmSeg.file)}
                 volume={(f) => {
                   const fps = config.fps;
-                  const total = manifest.totalDurationInFrames;
-                  const fadeInFrames = Math.ceil((config.bgm!.fadeInMs / 1000) * fps);
-                  const fadeOutFrames = Math.ceil((config.bgm!.fadeOutMs / 1000) * fps);
-                  const baseVolume = config.bgm!.volume;
-
+                  const fadeInFrames = Math.ceil((fadeInMs / 1000) * fps);
+                  const fadeOutFrames = Math.ceil((fadeOutMs / 1000) * fps);
                   let vol = baseVolume;
                   if (fadeInFrames > 0) {
                     vol *= interpolate(f, [0, fadeInFrames], [0, 1], {
@@ -238,19 +214,50 @@ export const ZundamonComposition: React.FC<Record<string, unknown>> = (props) =>
                     });
                   }
                   if (fadeOutFrames > 0) {
-                    vol *= interpolate(
-                      f,
-                      [total - fadeOutFrames, total],
-                      [1, 0],
-                      { extrapolateLeft: "clamp", extrapolateRight: "clamp" }
-                    );
+                    vol *= interpolate(f, [duration - fadeOutFrames, duration], [1, 0], {
+                      extrapolateLeft: "clamp",
+                      extrapolateRight: "clamp",
+                    });
                   }
                   return vol;
                 }}
                 loop
               />
             </Sequence>
-          )}
+          );
+        })
+        : manifest.bgmFile && config.bgm && (
+          <Sequence from={jingleDurationInFrames} durationInFrames={manifest.totalDurationInFrames - jingleDurationInFrames}>
+            <Html5Audio
+              src={staticFile(manifest.bgmFile)}
+              volume={(f) => {
+                const fps = config.fps;
+                const total = manifest.totalDurationInFrames;
+                const fadeInFrames = Math.ceil((config.bgm!.fadeInMs / 1000) * fps);
+                const fadeOutFrames = Math.ceil((config.bgm!.fadeOutMs / 1000) * fps);
+                const baseVolume = config.bgm!.volume;
+
+                let vol = baseVolume;
+                if (fadeInFrames > 0) {
+                  vol *= interpolate(f, [0, fadeInFrames], [0, 1], {
+                    extrapolateLeft: "clamp",
+                    extrapolateRight: "clamp",
+                  });
+                }
+                if (fadeOutFrames > 0) {
+                  vol *= interpolate(
+                    f,
+                    [total - fadeOutFrames, total],
+                    [1, 0],
+                    { extrapolateLeft: "clamp", extrapolateRight: "clamp" }
+                  );
+                }
+                return vol;
+              }}
+              loop
+            />
+          </Sequence>
+        )}
 
       {/* Sound effects */}
       {manifest.soundEffects?.map((se, i) => (
@@ -299,6 +306,29 @@ export const ZundamonComposition: React.FC<Record<string, unknown>> = (props) =>
                     style={{ width: "100%", height: "100%", objectFit: "cover" }}
                   />
                 ) : null}
+                {(entry.segment.text || config.jingle?.text) ? (
+                  <AbsoluteFill
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      paddingTop: "10%",
+                    }}
+                  >
+                    <div
+                      style={{
+                        fontFamily: `'${baseFontFamily}', sans-serif`,
+                        fontSize: 72,
+                        fontWeight: "bold",
+                        color: "#ffffff",
+                        textShadow: "0 0 8px rgba(0,0,0,0.8), 0 4px 12px rgba(0,0,0,0.6)",
+                        letterSpacing: "0.05em",
+                      }}
+                    >
+                      {entry.segment.text || config.jingle?.text}
+                    </div>
+                  </AbsoluteFill>
+                ) : null}
               </AbsoluteFill>
             </Sequence>
           );
@@ -306,7 +336,7 @@ export const ZundamonComposition: React.FC<Record<string, unknown>> = (props) =>
       )}
 
       {/* Slide content */}
-      {currentSlideMarkdown && (
+      {!isInJingle && currentSlideMarkdown && (
         <SlideContent
           markdown={currentSlideMarkdown}
           fontFamily={slideFontFamily}
@@ -315,7 +345,7 @@ export const ZundamonComposition: React.FC<Record<string, unknown>> = (props) =>
       )}
 
       {/* Chapter title */}
-      {currentChapterTitle && (
+      {!isInJingle && currentChapterTitle && (
         <ChapterTitle
           title={currentChapterTitle}
           fontFamily={baseFontFamily}
@@ -324,7 +354,7 @@ export const ZundamonComposition: React.FC<Record<string, unknown>> = (props) =>
       )}
 
       {/* Characters */}
-      {config.characters.map((char) => (
+      {!isInJingle && config.characters.map((char) => (
         <CharacterDisplay
           key={char.name}
           isSpeaking={currentSpeechCharacter === char.name}
@@ -343,7 +373,7 @@ export const ZundamonComposition: React.FC<Record<string, unknown>> = (props) =>
       ))}
 
       {/* Subtitle */}
-      {currentSpeechText && (
+      {!isInJingle && currentSpeechText && (
         <Subtitle
           text={currentSpeechText}
           fontFamily={subtitleFontFamily}
