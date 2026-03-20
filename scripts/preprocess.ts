@@ -246,6 +246,38 @@ function parseBgmDirective(
   return { src: m[1].toLowerCase() === "off" ? null : m[1] };
 }
 
+/** Parse [jingle: audio image=img 2000ms] directives */
+const JINGLE_DIRECTIVE_RE = /^\[jingle:\s*(.+?)\s*\]$/i;
+
+function parseJingleDirective(
+  line: string
+): { src: string; ms?: number; imagePath?: string } | null {
+  const m = line.trim().match(JINGLE_DIRECTIVE_RE);
+  if (!m) return null;
+  let body = m[1];
+
+  // Extract image=... option
+  let imagePath: string | undefined;
+  const imageMatch = body.match(/\bimage=(\S+)/i);
+  if (imageMatch) {
+    imagePath = imageMatch[1];
+    body = body.replace(imageMatch[0], "").trim();
+  }
+
+  // Extract duration (e.g. 2000ms, 3s)
+  let ms: number | undefined;
+  const durationMatch = body.match(/\b(\d+)(ms|s)\b/);
+  if (durationMatch) {
+    const value = parseInt(durationMatch[1], 10);
+    ms = durationMatch[2] === "s" ? value * 1000 : value;
+    body = body.replace(durationMatch[0], "").trim();
+  }
+
+  const src = body;
+  if (!src) return null;
+  return { src, ms, imagePath };
+}
+
 /** Parse [pause: 500ms] directives from text, returning speech lines and pause segments */
 const PAUSE_RE = /^\[pause:\s*(\d+)(ms|s)\]$/;
 
@@ -464,6 +496,74 @@ async function main() {
             durationInFrames,
           });
           speechCount = 0; // reset so next speech doesn't get a gap
+        } else if (parseJingleDirective(trimmed) !== null) {
+          const jingle = parseJingleDirective(trimmed)!;
+          // Resolve audio file path
+          const candidates = [
+            path.resolve(mdDir, jingle.src),
+            path.resolve(__dirname, "..", jingle.src),
+          ];
+          const resolvedJingle = candidates.find((p) => fs.existsSync(p));
+          if (!resolvedJingle) {
+            throw new Error(
+              `Jingle file not found: "${jingle.src}"\n` +
+              `  Tried:\n` +
+              candidates.map((p) => `    - ${p}`).join("\n")
+            );
+          }
+
+          // Copy to project audio dir
+          const jingleFilename = path.basename(resolvedJingle);
+          const jingleDest = path.join(audioDir, jingleFilename);
+          fs.copyFileSync(resolvedJingle, jingleDest);
+          const jinglePublicPath = `projects/${projectName}/audio/${jingleFilename}`;
+          console.log(`  [jingle] ${jingle.src} → ${jinglePublicPath}`);
+
+          // Determine duration
+          let durationInFrames: number;
+          if (jingle.ms) {
+            durationInFrames = Math.ceil((jingle.ms / 1000) * config.fps);
+          } else if (resolvedJingle.toLowerCase().endsWith(".wav")) {
+            const durationSec = getWavDurationSec(resolvedJingle);
+            durationInFrames = Math.ceil(durationSec * config.fps);
+          } else {
+            // Default to 3 seconds for non-WAV files without explicit duration
+            durationInFrames = Math.ceil(3 * config.fps);
+            console.log(`  [jingle] No duration specified for non-WAV file, using 3s`);
+          }
+
+          // Resolve and copy jingle image if specified
+          let jingleImagePublicPath: string | undefined;
+          if (jingle.imagePath) {
+            const imgCandidates = [
+              path.resolve(mdDir, jingle.imagePath),
+              path.resolve(__dirname, "..", jingle.imagePath),
+            ];
+            const resolvedImg = imgCandidates.find((p) => fs.existsSync(p));
+            if (!resolvedImg) {
+              throw new Error(
+                `Jingle image not found: "${jingle.imagePath}"\n` +
+                `  Tried:\n` +
+                imgCandidates.map((p) => `    - ${p}`).join("\n")
+              );
+            }
+            fs.mkdirSync(imagesDir, { recursive: true });
+            const imgFilename = path.basename(resolvedImg);
+            const imgDest = path.join(imagesDir, imgFilename);
+            fs.copyFileSync(resolvedImg, imgDest);
+            jingleImagePublicPath = `projects/${projectName}/images/${imgFilename}`;
+            console.log(`  [jingle] image: ${jingle.imagePath} → ${jingleImagePublicPath}`);
+          }
+
+          console.log(`[jingle] ${jingle.src} (${durationInFrames} frames)`);
+          segments.push({
+            type: "jingle",
+            text: "",
+            audioFile: jinglePublicPath,
+            durationInFrames,
+            ...(jingleImagePublicPath ? { imagePath: jingleImagePublicPath } : {}),
+          });
+          speechCount = 0;
         } else if (parseBgmDirective(trimmed) !== null) {
           const bgm = parseBgmDirective(trimmed)!;
           const currentFrame = segments.reduce((sum, s) => sum + s.durationInFrames, 0);

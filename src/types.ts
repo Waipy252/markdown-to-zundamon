@@ -53,13 +53,14 @@ export const ManifestConfigSchema = z.object({
 });
 
 export const SegmentSchema = z.object({
-  type: z.enum(["speech", "slide", "pause", "chapter"]),
+  type: z.enum(["speech", "slide", "pause", "chapter", "jingle"]),
   text: z.string(),
   audioFile: z.string().optional(),
   durationInFrames: z.number(),
   markdown: z.string().optional(),
   character: z.string().optional(),
   chapterLevel: z.number().optional(),
+  imagePath: z.string().optional(),
 });
 
 export const SceneBgmSchema = z.object({

@@ -250,10 +250,10 @@ export const ZundamonComposition: React.FC<Record<string, unknown>> = (props) =>
             </Sequence>
           )}
 
-      {/* Audio sequences */}
+      {/* Audio sequences (speech + jingle) */}
       {timeline.map(
         (entry, i) =>
-          entry.segment.type === "speech" &&
+          (entry.segment.type === "speech" || entry.segment.type === "jingle") &&
           entry.segment.audioFile && (
             <Sequence
               key={i}
@@ -263,6 +263,37 @@ export const ZundamonComposition: React.FC<Record<string, unknown>> = (props) =>
               <Html5Audio src={staticFile(entry.segment.audioFile)} />
             </Sequence>
           )
+      )}
+
+      {/* Jingle visual overlay */}
+      {timeline.map(
+        (entry, i) => {
+          if (entry.segment.type !== "jingle") return null;
+          const jingleImage = entry.segment.imagePath ?? config.jingle?.imagePath;
+          return (
+            <Sequence
+              key={`jingle-${i}`}
+              from={entry.startFrame}
+              durationInFrames={entry.segment.durationInFrames}
+            >
+              <AbsoluteFill
+                style={{
+                  backgroundColor: "#000000",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                {jingleImage ? (
+                  <Img
+                    src={staticFile(jingleImage)}
+                    style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                  />
+                ) : null}
+              </AbsoluteFill>
+            </Sequence>
+          );
+        }
       )}
 
       {/* Slide content */}
