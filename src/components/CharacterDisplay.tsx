@@ -36,12 +36,9 @@ export const CharacterDisplay: React.FC<Props> = ({
   // Subtle bounce animation when speaking
   const offsetY = isSpeaking ? Math.sin(frame * 0.3) * 5 : 0;
 
-  // Determine display image: style image > lip-sync active images > default
+  // Determine display image: lip-sync active images > default
   let displayImageSrc = imageSrc;
-  if (isSpeaking && style) {
-    // Use style-specific image (e.g. characters/ずんだもん/ささやき.png)
-    displayImageSrc = `characters/${characterName}/${style}.png`;
-  } else if (isSpeaking && activeImageSrcs && activeImageSrcs.length > 0) {
+  if (isSpeaking && activeImageSrcs && activeImageSrcs.length > 0) {
     const index = Math.floor(frame / 4) % activeImageSrcs.length;
     displayImageSrc = activeImageSrcs[index];
   }

@@ -143,7 +143,7 @@ export const SlideContent: React.FC<Props> = ({ markdown, fontFamily, codeHighli
             },
             img: ({ src, alt }) => (
               <Img
-                src={src ? staticFile(src) : ""}
+                src={src ? staticFile(decodeURIComponent(src)) : ""}
                 alt={alt ?? ""}
                 style={{
                   maxWidth: "100%",

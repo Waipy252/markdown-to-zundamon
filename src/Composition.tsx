@@ -163,10 +163,16 @@ export const ZundamonComposition: React.FC<Record<string, unknown>> = (props) =>
   return (
     <AbsoluteFill
       style={{
-        backgroundColor: "#e8f5e9",
+        backgroundColor: config.backgroundImage ? undefined : "#e8f5e9",
         fontFamily: `'${baseFontFamily}', sans-serif`,
       }}
     >
+      {config.backgroundImage && (
+        <Img
+          src={staticFile(config.backgroundImage)}
+          style={{ position: "absolute", width: "100%", height: "100%", objectFit: "cover" }}
+        />
+      )}
 
       {/* Jingle */}
       {jingleDurationInFrames > 0 && (
@@ -369,9 +375,14 @@ export const ZundamonComposition: React.FC<Record<string, unknown>> = (props) =>
           key={char.name}
           isSpeaking={currentSpeechCharacter === char.name}
           imageSrc={`characters/${char.name}/default.png`}
-          activeImageSrcs={char.activeImages?.map(
-            (img) => `characters/${char.name}/${img}`
-          )}
+          activeImageSrcs={(() => {
+            const map = char.activeImages;
+            if (!map) return undefined;
+            const isSpeaking = currentSpeechCharacter === char.name;
+            const style = isSpeaking ? currentSpeechStyle : null;
+            const files = (style && map[style]) ? map[style] : map["default"] ?? [];
+            return files.map((img) => `characters/${char.name}/${img}`);
+          })()}
           style={currentSpeechCharacter === char.name ? currentSpeechStyle ?? undefined : undefined}
           characterName={char.name}
           position={char.position}

@@ -13,7 +13,7 @@ export const CharacterSchema = z.object({
   speed: z.number().positive().optional(),
   styles: z.record(z.string(), z.number()).optional(),
   // image path は name から自動解決: characters/<name>/default.png
-  activeImages: z.array(z.string()).optional(),
+  activeImages: z.record(z.string(), z.array(z.string())).optional(),
 });
 
 export const BgmConfigSchema = z.object({
@@ -50,6 +50,7 @@ export const ManifestConfigSchema = z.object({
     .default("top-right"),
   readingsDictionary: z.record(z.string(), z.string()).optional(),
   speed: z.number().positive().default(1.0),
+  backgroundImage: z.string().optional(),
 });
 
 export const SegmentSchema = z.object({

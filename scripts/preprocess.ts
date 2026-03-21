@@ -341,26 +341,30 @@ function copyCharacterImages(characters: Character[]): void {
       console.warn(`  [warn] Character image not found: ${charSrc}`);
     }
 
-    // Copy active images for lip-sync animation (default_active1.png, default_active2.png, ...)
+    // Copy all active images for lip-sync animation ({style}_active1.png, ...)
     const charDir = path.resolve(__dirname, `../characters/${char.name}`);
     const activeFiles = fs.readdirSync(charDir)
-      .filter((f) => /^default_active\d+\.png$/.test(f))
+      .filter((f) => /^.+_active\d+\.png$/.test(f))
       .sort();
     if (activeFiles.length > 0) {
-      char.activeImages = [];
+      char.activeImages = {};
       for (const file of activeFiles) {
+        const match = /^(.+)_active\d+\.png$/.exec(file);
+        if (!match) continue;
+        const styleKey = match[1]; // e.g. "default", "ツンツン"
         const activeSrc = path.join(charDir, file);
         const activeDst = path.resolve(
           __dirname,
           `../public/characters/${char.name}/${file}`
         );
         fs.copyFileSync(activeSrc, activeDst);
-        char.activeImages.push(file);
+        if (!char.activeImages[styleKey]) char.activeImages[styleKey] = [];
+        char.activeImages[styleKey].push(file);
         console.log(`  [char] ${char.name} → characters/${char.name}/${file}`);
       }
     }
 
-    // Copy style images (e.g. ささやき.png, なみだめ.png)
+    // Copy static style images (e.g. ささやき.png) if they exist
     if (char.styles) {
       for (const styleName of Object.keys(char.styles)) {
         const styleSrc = path.join(charDir, `${styleName}.png`);
@@ -778,6 +782,28 @@ async function main() {
     fs.copyFileSync(resolvedBgm, bgmDest);
     bgmFile = `projects/${projectName}/bgm/${bgmFilename}`;
     console.log(`  [bgm] ${bgmSrc} → ${bgmFile}`);
+  }
+
+  // Copy background image if configured
+  if (config.backgroundImage) {
+    const bgImgSrc = config.backgroundImage;
+    const candidates = [
+      path.resolve(mdDir, bgImgSrc),
+      path.resolve(__dirname, "..", bgImgSrc),
+    ];
+    const resolvedBgImg = candidates.find((p) => fs.existsSync(p));
+    if (!resolvedBgImg) {
+      throw new Error(
+        `Background image not found: "${bgImgSrc}"\n` +
+        `  Tried:\n` +
+        candidates.map((p) => `    - ${p}`).join("\n")
+      );
+    }
+    const bgImgFilename = path.basename(resolvedBgImg);
+    const bgImgDest = path.join(projectDir, bgImgFilename);
+    fs.copyFileSync(resolvedBgImg, bgImgDest);
+    config.backgroundImage = `projects/${projectName}/${bgImgFilename}`;
+    console.log(`  [bg] ${bgImgSrc} → ${config.backgroundImage}`);
   }
 
   // Process sound effects: copy files and build SE list with jingle-offset frames
