@@ -106,6 +106,11 @@ export const ZundamonComposition: React.FC<Record<string, unknown>> = (props) =>
     ? Math.ceil((config.jingle.durationMs / 1000) * config.fps)
     : 0;
 
+  // End jingle starts after all content
+  const endJingleStartFrame = config.jingle
+    ? manifest.totalDurationInFrames - jingleDurationInFrames
+    : 0;
+
   // Build timeline: compute start frame for each segment (offset by jingle)
   const timeline: { segment: (typeof segments)[number]; startFrame: number }[] =
     [];
@@ -115,8 +120,12 @@ export const ZundamonComposition: React.FC<Record<string, unknown>> = (props) =>
     currentFrame += segment.durationInFrames;
   }
 
-  // Check if currently in a jingle segment
-  const isInJingle = timeline.some(
+  // Check if currently in a jingle segment (inline or opening/ending)
+  const isInEndJingle =
+    config.jingle != null &&
+    frame >= endJingleStartFrame &&
+    frame < endJingleStartFrame + jingleDurationInFrames;
+  const isInJingle = isInEndJingle || timeline.some(
     (entry) =>
       entry.segment.type === "jingle" &&
       frame >= entry.startFrame &&
@@ -177,6 +186,39 @@ export const ZundamonComposition: React.FC<Record<string, unknown>> = (props) =>
       {/* Jingle */}
       {jingleDurationInFrames > 0 && (
         <Sequence from={0} durationInFrames={jingleDurationInFrames}>
+          <AbsoluteFill>
+            <Img
+              src={staticFile(config.jingle!.imagePath)}
+              style={{ width: "100%", height: "100%", objectFit: "cover" }}
+            />
+            <AbsoluteFill
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <div
+                style={{
+                  fontFamily: `'${baseFontFamily}', sans-serif`,
+                  fontSize: 72,
+                  fontWeight: "bold",
+                  color: "#ffffff",
+                  textShadow: "0 0 8px rgba(0,0,0,0.8), 0 4px 12px rgba(0,0,0,0.6)",
+                  letterSpacing: "0.05em",
+                }}
+              >
+                {config.jingle!.text}
+              </div>
+            </AbsoluteFill>
+            <Html5Audio src={staticFile(config.jingle!.audioPath)} />
+          </AbsoluteFill>
+        </Sequence>
+      )}
+
+      {/* End Jingle */}
+      {jingleDurationInFrames > 0 && (
+        <Sequence from={endJingleStartFrame} durationInFrames={jingleDurationInFrames}>
           <AbsoluteFill>
             <Img
               src={staticFile(config.jingle!.imagePath)}

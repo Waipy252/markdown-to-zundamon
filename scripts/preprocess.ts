@@ -212,13 +212,21 @@ async function blockquoteToMarkdown(
  */
 function applyReadingsDictionary(text: string, dict?: Record<string, string>): string {
   if (!dict) return text;
+  // Sort by word length descending so longer matches take priority (e.g. "ガラス管" before "管")
+  const entries = Object.entries(dict).sort((a, b) => b[0].length - a[0].length);
   let result = text;
-  for (const [word, reading] of Object.entries(dict)) {
+  for (const [word, reading] of entries) {
     const escaped = word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    result = result.replace(
-      new RegExp(escaped, "g"),
-      `<ruby>${word}<rt>${reading}</rt></ruby>`
-    );
+    // Replace only occurrences that are not already inside a <ruby>...</ruby> tag.
+    // Split by existing <ruby> tags, apply replacement only to non-tag parts.
+    const parts = result.split(/(<ruby>.*?<\/ruby>)/g);
+    result = parts
+      .map((part) =>
+        part.startsWith("<ruby>")
+          ? part
+          : part.replace(new RegExp(escaped, "g"), `<ruby>${word}<rt>${reading}</rt></ruby>`)
+      )
+      .join("");
   }
   return result;
 }
@@ -711,7 +719,8 @@ async function main() {
   const jingleDurationInFrames = config.jingle
     ? Math.ceil((config.jingle.durationMs / 1000) * config.fps)
     : 0;
-  const totalDurationInFrames = jingleDurationInFrames + contentDurationInFrames;
+  const endJingleDurationInFrames = config.jingle ? jingleDurationInFrames : 0;
+  const totalDurationInFrames = jingleDurationInFrames + contentDurationInFrames + endJingleDurationInFrames;
 
   const bgmSegments: SceneBgm[] = [];
   if (bgmChanges.length > 0) {
@@ -726,7 +735,7 @@ async function main() {
       const endFrame =
         i + 1 < bgmChanges.length
           ? bgmChanges[i + 1].startFrame + jingleDurationInFrames
-          : totalDurationInFrames;
+          : totalDurationInFrames - endJingleDurationInFrames;
 
       if (!copiedBgmFiles.has(change.src)) {
         const candidates = [
