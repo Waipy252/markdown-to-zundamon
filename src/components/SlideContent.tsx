@@ -16,6 +16,21 @@ interface Props {
 
 export const SlideContent: React.FC<Props> = ({ markdown, fontFamily, codeHighlightTheme = "oneLight" }) => {
   const codeStyle = THEMES[codeHighlightTheme] ?? THEMES["oneLight"];
+
+  const hasImage = /!\[.*?\]\(.*?\)/.test(markdown);
+  const imageLines: string[] = [];
+  const textLines: string[] = [];
+  if (hasImage) {
+    for (const line of markdown.split("\n")) {
+      if (/!\[.*?\]\(.*?\)/.test(line)) {
+        imageLines.push(line);
+      } else {
+        textLines.push(line);
+      }
+    }
+  }
+  const hasTextAndImage = hasImage && textLines.some((l) => l.trim().length > 0);
+
   return (
     <div
       style={{
@@ -40,7 +55,9 @@ export const SlideContent: React.FC<Props> = ({ markdown, fontFamily, codeHighli
           width: "100%",
           minHeight: "75%",
           display: "flex",
-          flexDirection: "column",
+          flexDirection: hasTextAndImage ? "row" : "column",
+          alignItems: hasTextAndImage ? "center" : undefined,
+          gap: hasTextAndImage ? 48 : undefined,
           justifyContent: "center",
           fontFamily: `${fontFamily}, sans-serif`,
         }}
@@ -147,7 +164,7 @@ export const SlideContent: React.FC<Props> = ({ markdown, fontFamily, codeHighli
                 alt={alt ?? ""}
                 style={{
                   maxWidth: "100%",
-                  maxHeight: 500,
+                  maxHeight: hasTextAndImage ? 450 : 500,
                   objectFit: "contain",
                   borderRadius: 12,
                 }}
@@ -155,8 +172,43 @@ export const SlideContent: React.FC<Props> = ({ markdown, fontFamily, codeHighli
             ),
           }}
         >
-          {markdown}
+          {hasTextAndImage ? imageLines.join("\n") : markdown}
         </Markdown>
+        {hasTextAndImage && (
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <Markdown
+              remarkPlugins={[remarkGfm]}
+              components={{
+                h1: ({ children }) => (
+                  <div style={{ fontSize: 64, fontWeight: 700, marginBottom: 20 }}>{children}</div>
+                ),
+                h2: ({ children }) => (
+                  <div style={{ fontSize: 56, fontWeight: 700, marginBottom: 16 }}>{children}</div>
+                ),
+                h3: ({ children }) => (
+                  <div style={{ fontSize: 48, fontWeight: 700, marginBottom: 12 }}>{children}</div>
+                ),
+                p: ({ children }) => (
+                  <div style={{ marginBottom: 12, fontSize: 48, lineHeight: 1.7 }}>{children}</div>
+                ),
+                ul: ({ children }) => (
+                  <ul style={{ paddingLeft: "1.5em", margin: "0 0 12px", fontSize: 48 }}>{children}</ul>
+                ),
+                ol: ({ children }) => (
+                  <ol style={{ paddingLeft: "1.5em", margin: "0 0 12px", fontSize: 48 }}>{children}</ol>
+                ),
+                li: ({ children }) => (
+                  <li style={{ marginBottom: 6 }}>{children}</li>
+                ),
+                strong: ({ children }) => (
+                  <span style={{ fontWeight: 700, color: "#2e7d32" }}>{children}</span>
+                ),
+              }}
+            >
+              {textLines.join("\n")}
+            </Markdown>
+          </div>
+        )}
       </div>
     </div>
   );
